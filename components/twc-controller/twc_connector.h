@@ -36,7 +36,7 @@ namespace esphome {
                 uint8_t state;
                 uint8_t firmware_version[4];
                 
-                uint8_t serial_number[11];
+                uint8_t serial_number[12];  // 11 chars + NUL
                 
                 uint32_t total_kwh;
                 uint16_t phase1_voltage;

@@ -373,14 +373,36 @@ namespace esphome {
             }
         }
 
+        // Convert a raw, possibly non-NUL-terminated protocol field into a printable
+        // ASCII string. Returns false as soon as the field contains anything that is
+        // not printable ASCII, so a corrupt RS485 frame never reaches the API as an
+        // invalid UTF-8 text sensor state. aioesphomeapi rejects such a frame and
+        // drops the connection, after which the retained state is resent on every
+        // reconnect, leaving the client in a permanent reconnect loop.
+        static bool SanitizeAsciiField(const uint8_t *data, size_t max_len, std::string &out) {
+            out.clear();
+            for (size_t i = 0; i < max_len; i++) {
+                if (data[i] == '\0') break;
+                if (data[i] < 0x20 || data[i] > 0x7E) return false;
+                out.push_back((char)data[i]);
+            }
+            return !out.empty();
+        }
+
         void TeslaController::DecodeSerialNumber(EXTENDED_RESP_PACKET_T *serial) {
             SERIAL_PAYLOAD_T *serial_payload = (SERIAL_PAYLOAD_T *)serial->payload;
 
             TeslaConnector *c = GetConnector(serial->twcid);
 
-            if (strcmp((const char*)c->serial_number, (const char*)serial_payload->serial) != 0) {
-                strcpy((char *)&c->serial_number, (const char*)&serial_payload->serial);
-                controller_io_->writeChargerSerial(serial->twcid, std::string((char*)&c->serial_number));
+            std::string serial_str;
+            if (!SanitizeAsciiField(serial_payload->serial, sizeof(serial_payload->serial), serial_str)) {
+                ESP_LOGW(TAG, "Discarding corrupt serial number packet for %04x", serial->twcid);
+                return;
+            }
+
+            if (strncmp((const char*)c->serial_number, serial_str.c_str(), sizeof(c->serial_number)) != 0) {
+                snprintf((char *)c->serial_number, sizeof(c->serial_number), "%s", serial_str.c_str());
+                controller_io_->writeChargerSerial(serial->twcid, serial_str);
             }
 
 
@@ -665,10 +687,15 @@ namespace esphome {
                     break;
             }
 
-            if (changed && (strlen((const char*)vin) == 17)) {
-                controller_io_->writeChargerConnectedVin(vin_data->twcid, std::string((char *)vin));
-            } else if (changed && strlen((const char*)vin) == 0) {
-                controller_io_->writeChargerConnectedVin(vin_data->twcid, "0");
+            if (changed) {
+                std::string vin_str;
+                if (SanitizeAsciiField(vin, 17, vin_str) && vin_str.length() == 17) {
+                    controller_io_->writeChargerConnectedVin(vin_data->twcid, vin_str);
+                } else if (strlen((const char*)vin) == 0) {
+                    controller_io_->writeChargerConnectedVin(vin_data->twcid, "0");
+                } else {
+                    ESP_LOGW(TAG, "Discarding corrupt VIN for %04x", vin_data->twcid);
+                }
             }
 
             if (debug_) {
