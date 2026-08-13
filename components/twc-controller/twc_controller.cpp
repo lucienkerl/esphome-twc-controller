@@ -154,6 +154,10 @@ namespace esphome {
             onCurrentMessageCallback_ = callback;
         }
 
+        void TWCController::onChargingEnabledMessage(std::function<void(bool)> callback) {
+            onChargingEnabledMessageCallback_ = callback;
+        }
+
 
 /* End IO Functions */
 
@@ -187,6 +191,10 @@ namespace esphome {
         void TWCController::control(float value) {
             this->onCurrentMessageCallback_(round(value));
             this->publish_state(value);
+        }
+
+        void TWCController::set_charging_enabled(bool enabled) {
+            this->onChargingEnabledMessageCallback_(enabled);
         }
     }
 }

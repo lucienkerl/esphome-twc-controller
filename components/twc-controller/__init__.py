@@ -5,6 +5,7 @@ from esphome import pins
 from esphome.components import (
     number,
     sensor,
+    switch,
     text_sensor,
     uart,
 )
@@ -49,13 +50,15 @@ CONF_MIN_CURRENT = "min_current"
 CONF_MAX_CURRENT = "max_current"
 CONF_SET_CURRENT = "set_current"
 CONF_TWCID = "twc_id"
+CONF_ALLOW_CHARGING = "allow_charging"
 
 ICON_CURRENT_AC = "mdi:current-ac"
 ICON_CAR = "mdi:car"
 ICON_NUMERIC = "mdi:numeric"
 ICON_LIGHTNING_BOLT = "mdi:lightning-bolt"
+ICON_EV_STATION = "mdi:ev-station"
 
-AUTO_LOAD = ["number", "sensor", "text_sensor"]
+AUTO_LOAD = ["number", "sensor", "switch", "text_sensor"]
 DEPENDENCIES = ["uart"]
 
 TEXT_TYPES = [
@@ -82,6 +85,7 @@ twc_controller_ns = cg.esphome_ns.namespace("twc_controller")
 TWCController = twc_controller_ns.class_(
     "TWCController", number.Number, cg.Component, uart.UARTDevice
 )
+AllowChargingSwitch = twc_controller_ns.class_("AllowChargingSwitch", switch.Switch)
 
 def validate_min_max(config):
     if config[CONF_MAX_CURRENT] <= config[CONF_MIN_CURRENT]:
@@ -189,6 +193,14 @@ CONFIG_SCHEMA = cv.All(
                 icon=ICON_CURRENT_AC,
                 accuracy_decimals=0,
             ),
+            # Experimental: sends the protocol's dedicated START_CHARGING/
+            # STOP_CHARGING commands instead of relying on the heartbeat's
+            # current limit. Unverified to reliably stop an active session.
+            cv.Optional(CONF_ALLOW_CHARGING): switch.switch_schema(
+                AllowChargingSwitch,
+                icon=ICON_EV_STATION,
+                default_restore_mode="RESTORE_DEFAULT_ON",
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -227,6 +239,10 @@ async def to_code(config):
 
     for key in TEXT_TYPES:
         await setup_text_sensor(config, key, num_var)
+
+    if allow_charging_config := config.get(CONF_ALLOW_CHARGING):
+        allow_charging_switch = await switch.new_switch(allow_charging_config)
+        cg.add(allow_charging_switch.set_parent(num_var))
 
     pin = await gpio_pin_expression(config[CONF_FLOW_CONTROL_PIN])
     cg.add(num_var.set_flow_control_pin(pin))

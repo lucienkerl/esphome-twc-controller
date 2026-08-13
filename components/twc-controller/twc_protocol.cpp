@@ -47,6 +47,7 @@ namespace esphome {
 
             // Register callbacks for IO
             controller_io_->onCurrentMessage([this](uint8_t current){ this->SetCurrent(current); });
+            controller_io_->onChargingEnabledMessage([this](bool enabled){ this->SetChargingEnabled(enabled); });
 
             receive_index_ = 0;
             if (this->flow_control_pin_ != nullptr)
@@ -88,6 +89,20 @@ namespace esphome {
                         twc->SendHeartbeat(twc->chargers[i]->twcid);
 
                         vTaskDelay(500+random(50,100)/portTICK_PERIOD_MS);
+
+                        // Send the dedicated start/stop command once whenever
+                        // the desired charging-enabled state changes (or a
+                        // secondary has just linked and never received one).
+                        int8_t desired = twc->charging_enabled_ ? 1 : 0;
+                        if (twc->chargers[i]->charging_enabled_last_sent != desired) {
+                            twc->chargers[i]->charging_enabled_last_sent = desired;
+                            if (desired) {
+                                twc->StartCharging(twc->chargers[i]->twcid);
+                            } else {
+                                twc->StopCharging(twc->chargers[i]->twcid);
+                            }
+                            vTaskDelay(200+random(50,100)/portTICK_PERIOD_MS);
+                        }
 
                         switch (commandNumber) {
                             case 0:
@@ -249,6 +264,26 @@ namespace esphome {
             } else {
                 available_current_ = current;
             }
+        }
+
+        void TeslaController::SetChargingEnabled(bool enabled) {
+            if (charging_enabled_ != enabled) {
+                ESP_LOGD(TAG, "Received charging enabled change message, now %s\r\n", enabled ? "true" : "false");
+            }
+            charging_enabled_ = enabled;
+        }
+
+        // Dedicated protocol commands (0xFCB1/0xFCB2), separate from the
+        // heartbeat's current limit. Experimental and unverified: TWCManager,
+        // the most actively maintained fake-master implementation, has never
+        // gotten reliable start/stop via TWC-only commands working and
+        // controls the car's own API instead. Test carefully.
+        void TeslaController::StartCharging(uint16_t twcid) {
+            SendCommand(START_CHARGING, twcid);
+        }
+
+        void TeslaController::StopCharging(uint16_t twcid) {
+            SendCommand(STOP_CHARGING, twcid);
         }
 
         void TeslaController::SendPresence(bool presence2) {

@@ -48,6 +48,12 @@ namespace esphome {
                 uint8_t phase3_current;
 
                 uint8_t max_allowable_current;
+
+                // -1 = never sent, otherwise last StartCharging(1)/StopCharging(0)
+                // sent to this connector. Tracked per-connector so a freshly
+                // linked secondary gets the current allow/deny state asserted
+                // once, and it isn't resent every loop iteration.
+                int8_t charging_enabled_last_sent = -1;
             private:
                 uint8_t vin_[18];
                 uint8_t actual_current_;

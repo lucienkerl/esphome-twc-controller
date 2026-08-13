@@ -44,6 +44,7 @@ namespace esphome {
 
                 void set_passive_mode(int passive_mode) { this->passive_mode_ = passive_mode; }
                 void set_flow_control_pin(GPIOPin *flow_control_pin) { this->flow_control_pin_ = flow_control_pin; }
+                void set_charging_enabled(bool enabled);
 
                 SUB_SENSOR(current)
                 SUB_SENSOR(max_allowable_current)
@@ -79,6 +80,7 @@ namespace esphome {
                 void writeRaw(uint8_t*, size_t);
                 void writeRawPacket(uint8_t *data, size_t length);
                 void onCurrentMessage(std::function<void(uint8_t)>);
+                void onChargingEnabledMessage(std::function<void(bool)>);
 
 /* End IO Functions */
             protected:
@@ -88,6 +90,7 @@ namespace esphome {
 
                 TeslaController *teslaController_;
                 std::function<void(uint8_t)> onCurrentMessageCallback_=nullptr;
+                std::function<void(bool)> onChargingEnabledMessageCallback_=nullptr;
                 uint8_t min_current_;
                 uint8_t max_current_;
                 uint16_t twcid_;

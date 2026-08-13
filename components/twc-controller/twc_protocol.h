@@ -193,6 +193,7 @@ namespace esphome {
                 void SetMaxCurrent(uint8_t maxCurrent);
                 void SetMinCurrent(uint8_t mincurrent);
                 void SetStopStartDelay(uint16_t stopstart_delay);
+                void SetChargingEnabled(bool enabled);
                 uint8_t ChargersConnected();
                 TeslaConnector * GetConnector(uint16_t twcid);
                 void UpdateTotalActualCurrent();
@@ -228,6 +229,7 @@ namespace esphome {
                 uint8_t min_current_;
                 uint16_t stopstart_delay_;
                 bool current_changed_;
+                bool charging_enabled_ = true;
                 bool debug_;
                 uint8_t passive_mode_;
                 uint8_t total_current_;

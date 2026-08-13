@@ -37,6 +37,7 @@ namespace esphome {
                 virtual void writeRaw(uint8_t*, size_t) = 0;
                 virtual void writeRawPacket(uint8_t *data, size_t length) = 0;
                 virtual void onCurrentMessage(std::function<void(uint8_t)>) = 0;
+                virtual void onChargingEnabledMessage(std::function<void(bool)>) = 0;
         };
     }
 }
