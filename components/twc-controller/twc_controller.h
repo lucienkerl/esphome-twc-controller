@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "esphome/core/component.h"
 #include "esphome/core/entity_base.h"
 #include "esphome/components/api/custom_api_device.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/uart/uart.h"
@@ -62,6 +63,9 @@ namespace esphome {
                 SUB_TEXT_SENSOR(firmware_version)
                 SUB_TEXT_SENSOR(connected_vin)
 
+                SUB_BINARY_SENSOR(vehicle_connected)
+                SUB_BINARY_SENSOR(charging_active)
+
 /* IO Functions */
                 void resetIO(uint16_t);
                 void writeActualCurrent(uint8_t actualCurrent);
@@ -87,8 +91,11 @@ namespace esphome {
                 GPIOPin *flow_control_pin_{nullptr};
                 void print_params_();
                 void control(float value);
+                void update_derived_sensors_();
 
                 TeslaController *teslaController_;
+                uint8_t last_state_{0};
+                uint8_t last_actual_current_{0};
                 std::function<void(uint8_t)> onCurrentMessageCallback_=nullptr;
                 std::function<void(bool)> onChargingEnabledMessageCallback_=nullptr;
                 uint8_t min_current_;

@@ -124,6 +124,8 @@ namespace esphome {
 
         void TWCController::writeChargerActualCurrent(uint16_t twcid, uint8_t current) {
             this->actual_current_sensor_->publish_state((float)current);
+            this->last_actual_current_ = current;
+            this->update_derived_sensors_();
         }
 
         void TWCController::writeChargerTotalPhaseCurrent(uint8_t current, uint8_t phase) {
@@ -136,6 +138,8 @@ namespace esphome {
 
         void TWCController::writeChargerState(uint16_t twcid, uint8_t state) {
             this->state_sensor_->publish_state((float)state);
+            this->last_state_ = state;
+            this->update_derived_sensors_();
         }
 
         void TWCController::writeTotalConnectedCars(uint8_t connected_cars) {
@@ -195,6 +199,27 @@ namespace esphome {
 
         void TWCController::set_charging_enabled(bool enabled) {
             this->onChargingEnabledMessageCallback_(enabled);
+        }
+
+        // State codes per TWCManager's TWCSlave.py (send_slave_heartbeat):
+        // 1/8 = charging/starting to charge, 3/4 = plugged in but not
+        // charging. 0 is explicitly documented as "car may or may not be
+        // plugged in" and is therefore not treated as either. State 9 is
+        // excluded too: since the primary now asserts command 0x09 in every
+        // heartbeat, the secondary echoes state 9 as an acknowledgement of
+        // that command rather than reporting an actual vehicle status.
+        // actual_current backstops both cases when the state byte is
+        // ambiguous or lags behind reality.
+        void TWCController::update_derived_sensors_() {
+            bool charging = this->last_state_ == 1 || this->last_state_ == 8 || this->last_actual_current_ > 0;
+            bool connected = charging || this->last_state_ == 3 || this->last_state_ == 4;
+
+            if (this->charging_active_binary_sensor_ != nullptr) {
+                this->charging_active_binary_sensor_->publish_state(charging);
+            }
+            if (this->vehicle_connected_binary_sensor_ != nullptr) {
+                this->vehicle_connected_binary_sensor_->publish_state(connected);
+            }
         }
     }
 }

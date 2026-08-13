@@ -3,6 +3,7 @@ import esphome.config_validation as cv
 from esphome.cpp_helpers import gpio_pin_expression
 from esphome import pins
 from esphome.components import (
+    binary_sensor,
     number,
     sensor,
     switch,
@@ -24,8 +25,10 @@ from esphome.const import (
     UNIT_KILOWATT_HOURS,
     UNIT_VOLT,
 
+    DEVICE_CLASS_BATTERY_CHARGING,
     DEVICE_CLASS_CURRENT,
     DEVICE_CLASS_ENERGY,
+    DEVICE_CLASS_PLUG,
     DEVICE_CLASS_VOLTAGE,
 
     STATE_CLASS_MEASUREMENT,
@@ -51,14 +54,17 @@ CONF_MAX_CURRENT = "max_current"
 CONF_SET_CURRENT = "set_current"
 CONF_TWCID = "twc_id"
 CONF_ALLOW_CHARGING = "allow_charging"
+CONF_VEHICLE_CONNECTED = "vehicle_connected"
+CONF_CHARGING_ACTIVE = "charging_active"
 
 ICON_CURRENT_AC = "mdi:current-ac"
 ICON_CAR = "mdi:car"
 ICON_NUMERIC = "mdi:numeric"
 ICON_LIGHTNING_BOLT = "mdi:lightning-bolt"
 ICON_EV_STATION = "mdi:ev-station"
+ICON_BATTERY_CHARGING = "mdi:battery-charging"
 
-AUTO_LOAD = ["number", "sensor", "switch", "text_sensor"]
+AUTO_LOAD = ["binary_sensor", "number", "sensor", "switch", "text_sensor"]
 DEPENDENCIES = ["uart"]
 
 TEXT_TYPES = [
@@ -79,6 +85,11 @@ TYPES = [
     CONF_PHASE_2_CURRENT,
     CONF_PHASE_3_CURRENT,
     CONF_ACTUAL_CURRENT,
+]
+
+BINARY_TYPES = [
+    CONF_VEHICLE_CONNECTED,
+    CONF_CHARGING_ACTIVE,
 ]
 
 twc_controller_ns = cg.esphome_ns.namespace("twc_controller")
@@ -201,6 +212,17 @@ CONFIG_SCHEMA = cv.All(
                 icon=ICON_EV_STATION,
                 default_restore_mode="RESTORE_DEFAULT_ON",
             ),
+            # Derived from the state/actual_current sensors - see
+            # TWCController::update_derived_sensors_() for the exact logic
+            # and why the raw "state" value alone isn't used.
+            cv.Optional(CONF_VEHICLE_CONNECTED): binary_sensor.binary_sensor_schema(
+                icon=ICON_CAR,
+                device_class=DEVICE_CLASS_PLUG,
+            ),
+            cv.Optional(CONF_CHARGING_ACTIVE): binary_sensor.binary_sensor_schema(
+                icon=ICON_BATTERY_CHARGING,
+                device_class=DEVICE_CLASS_BATTERY_CHARGING,
+            ),
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -217,6 +239,11 @@ async def setup_text_sensor(config, key, hub):
     if sensor_config := config.get(key):
         sens = await text_sensor.new_text_sensor(sensor_config)
         cg.add(getattr(hub, f"set_{key}_text_sensor")(sens))
+
+async def setup_binary_sensor(config, key, hub):
+    if sensor_config := config.get(key):
+        sens = await binary_sensor.new_binary_sensor(sensor_config)
+        cg.add(getattr(hub, f"set_{key}_binary_sensor")(sens))
 
 async def to_code(config):
     num_var = await number.new_number(
@@ -239,6 +266,9 @@ async def to_code(config):
 
     for key in TEXT_TYPES:
         await setup_text_sensor(config, key, num_var)
+
+    for key in BINARY_TYPES:
+        await setup_binary_sensor(config, key, num_var)
 
     if allow_charging_config := config.get(CONF_ALLOW_CHARGING):
         allow_charging_switch = await switch.new_switch(allow_charging_config)
