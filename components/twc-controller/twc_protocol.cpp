@@ -239,16 +239,17 @@ namespace esphome {
                 current_changed_ = true;
             }
 
-            // If the available current is higher than the maximum for our charger,
-            // clamp it to the maximum
-            available_current_ = clamp(current, min_current_, max_current_);
-            /*if (current <= MAX_CURRENT & current >= MIN_CURRENT) {
+            // Clamp to the maximum for our charger. A current of 0 is a valid
+            // "stop charging" value and must pass through untouched instead
+            // of being raised to min_current_ like the 1..min_current_-1
+            // range (which the protocol doesn't accept) is.
+            if (current > max_current_) {
+                available_current_ = max_current_;
+            } else if (current > 0 && current < min_current_) {
+                available_current_ = min_current_;
+            } else {
                 available_current_ = current;
-            } else if (current > MAX_CURRENT) {
-                available_current_ = MAX_CURRENT;
-            } else if (current < MIN_CURRENT) {
-                available_current_ = MIN_CURRENT;
-            }*/
+            }
         }
 
         void TeslaController::SendPresence(bool presence2) {
