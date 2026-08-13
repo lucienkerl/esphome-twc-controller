@@ -59,6 +59,12 @@ namespace esphome {
                 SUB_SENSOR(actual_current)
                 SUB_SENSOR(state)
 
+                // Numeric (0/1) mirrors of the binary sensors below, for MQTT
+                // consumers that want a plain value instead of "ON"/"OFF" -
+                // ESPHome's MQTT binary_sensor payload isn't configurable.
+                SUB_SENSOR(vehicle_connected_numeric)
+                SUB_SENSOR(charging_active_numeric)
+
                 SUB_TEXT_SENSOR(serial)
                 SUB_TEXT_SENSOR(firmware_version)
                 SUB_TEXT_SENSOR(connected_vin)

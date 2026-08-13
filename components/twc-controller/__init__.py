@@ -56,6 +56,8 @@ CONF_TWCID = "twc_id"
 CONF_ALLOW_CHARGING = "allow_charging"
 CONF_VEHICLE_CONNECTED = "vehicle_connected"
 CONF_CHARGING_ACTIVE = "charging_active"
+CONF_VEHICLE_CONNECTED_NUMERIC = "vehicle_connected_numeric"
+CONF_CHARGING_ACTIVE_NUMERIC = "charging_active_numeric"
 
 ICON_CURRENT_AC = "mdi:current-ac"
 ICON_CAR = "mdi:car"
@@ -85,6 +87,8 @@ TYPES = [
     CONF_PHASE_2_CURRENT,
     CONF_PHASE_3_CURRENT,
     CONF_ACTUAL_CURRENT,
+    CONF_VEHICLE_CONNECTED_NUMERIC,
+    CONF_CHARGING_ACTIVE_NUMERIC,
 ]
 
 BINARY_TYPES = [
@@ -222,6 +226,17 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_CHARGING_ACTIVE): binary_sensor.binary_sensor_schema(
                 icon=ICON_BATTERY_CHARGING,
                 device_class=DEVICE_CLASS_BATTERY_CHARGING,
+            ),
+            # Same value as vehicle_connected/charging_active, published as
+            # a plain 0/1 sensor instead of a binary_sensor's "ON"/"OFF" -
+            # for MQTT consumers (e.g. Loxone) that want a numeric payload.
+            cv.Optional(CONF_VEHICLE_CONNECTED_NUMERIC): sensor.sensor_schema(
+                icon=ICON_CAR,
+                accuracy_decimals=0,
+            ),
+            cv.Optional(CONF_CHARGING_ACTIVE_NUMERIC): sensor.sensor_schema(
+                icon=ICON_BATTERY_CHARGING,
+                accuracy_decimals=0,
             ),
         }
     )

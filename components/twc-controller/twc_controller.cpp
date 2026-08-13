@@ -220,6 +220,12 @@ namespace esphome {
             if (this->vehicle_connected_binary_sensor_ != nullptr) {
                 this->vehicle_connected_binary_sensor_->publish_state(connected);
             }
+            if (this->charging_active_numeric_sensor_ != nullptr) {
+                this->charging_active_numeric_sensor_->publish_state(charging ? 1.0f : 0.0f);
+            }
+            if (this->vehicle_connected_numeric_sensor_ != nullptr) {
+                this->vehicle_connected_numeric_sensor_->publish_state(connected ? 1.0f : 0.0f);
+            }
         }
     }
 }

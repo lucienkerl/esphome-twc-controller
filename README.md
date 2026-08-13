@@ -18,7 +18,7 @@ In its factory configuration, a Gen 2 TWC's rotary switch is set to a numbered p
 
 - **Set Current** — a controllable `number` entity for the current (in amps) offered to the connected vehicle. Reasserted in *every* heartbeat sent to the TWC (roughly once a second), not just when it changes, so the limit actually holds — see [Known limitations](#known-limitations--safety-notes) for why that matters. Set to `0` to offer no current at all.
 - **Allow Charging** — an experimental `switch` entity that sends the protocol's dedicated start/stop commands rather than relying on a `0` current limit. See the caveat below before depending on it.
-- **Vehicle Connected / Charging Active** — two `binary_sensor` entities derived from the TWC's own status reporting, so you don't have to interpret raw protocol state codes yourself.
+- **Vehicle Connected / Charging Active** — two `binary_sensor` entities derived from the TWC's own status reporting, so you don't have to interpret raw protocol state codes yourself. Each also has a plain numeric (`0`/`1`) `sensor` twin, since ESPHome's MQTT integration always publishes a `binary_sensor` as the text `"ON"`/`"OFF"` with no way to configure that.
 - **Live measurements** — per-phase voltage and current, total actual current, instantaneous charging power (computed), lifetime energy delivered.
 - **Identification** — TWC serial number, firmware version, and (where the firmware supports it) the VIN of the connected vehicle.
 - **REST, MQTT, or Home Assistant API** — every entity above is a normal ESPHome entity. Expose it however your automation platform can consume it; this fork was built and tested against ESPHome's `web_server` REST interface specifically because it needs no broker and no HA install.
@@ -131,6 +131,10 @@ twc-controller:
     name: "Vehicle Connected"
   charging_active:
     name: "Charging Active"
+  vehicle_connected_numeric:
+    name: "Vehicle Connected Numeric"   # same value as vehicle_connected,
+  charging_active_numeric:              # as a plain 0/1 sensor for MQTT
+    name: "Charging Active Numeric"
 ```
 
 ## Configuration reference
@@ -164,8 +168,10 @@ twc-controller:
 | `serial` | `text_sensor` | TWC serial number. |
 | `firmware_version` | `text_sensor` | TWC firmware version. |
 | `connected_vin` | `text_sensor` | VIN of the connected vehicle, where the firmware reports it (Tesla only, firmware-dependent). |
-| `vehicle_connected` | `binary_sensor` | Derived — see below. |
-| `charging_active` | `binary_sensor` | Derived — see below. |
+| `vehicle_connected` | `binary_sensor` | Derived — see below. Published over MQTT as `"ON"`/`"OFF"`. |
+| `charging_active` | `binary_sensor` | Derived — see below. Published over MQTT as `"ON"`/`"OFF"`. |
+| `vehicle_connected_numeric` | `sensor` | Same value as `vehicle_connected`, as a plain `0`/`1` for MQTT consumers that want a number instead of `"ON"`/`"OFF"`. |
+| `charging_active_numeric` | `sensor` | Same value as `charging_active`, as a plain `0`/`1`. |
 
 ## Controlling and reading over REST
 
@@ -181,6 +187,8 @@ With `web_server: version: 1` configured, every entity above is reachable at `ht
 | Resume charging | `GET` or `POST /switch/Allow%20Charging/turn_on` |
 | Vehicle connected? | `GET /binary_sensor/Vehicle%20Connected` |
 | Currently charging? | `GET /binary_sensor/Charging%20Active` |
+| Vehicle connected? (as 0/1) | `GET /sensor/Vehicle%20Connected%20Numeric` |
+| Currently charging? (as 0/1) | `GET /sensor/Charging%20Active%20Numeric` |
 
 Responses are JSON, e.g. `{"id":"number-set_current","value":10.0,"state":"10.0 A"}` or `{"id":"switch-allow_charging","value":true,"state":"ON"}`. In Loxone, a Virtual HTTP Input polling one of the `GET` URLs with command recognition on `"value":` or `"state":"` gets you the number; a Virtual Output's *Command on ON* field takes the `set`/`turn_on`/`turn_off` URL directly.
 
