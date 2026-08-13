@@ -86,7 +86,6 @@ namespace esphome {
                 if (twc->ChargersConnected() > 0) {
                     for (uint8_t i = 0; i < twc->ChargersConnected(); i++) {
                         twc->SendHeartbeat(twc->chargers[i]->twcid);
-                        if (twc->current_changed_ == true) { twc->current_changed_ = false; };
 
                         vTaskDelay(500+random(50,100)/portTICK_PERIOD_MS);
 
@@ -290,16 +289,15 @@ namespace esphome {
             heartbeat.src_twcid = twcid_;
             heartbeat.dst_twcid = secondary_twcid;
 
-            if (current_changed_) {
-                uint16_t encodedMax = available_current_ * 100;
-                heartbeat.state = 0x09; // Limit power to the value from the next two bytes
+            // Assert the desired current on every heartbeat rather than just
+            // once after a change. The secondary only honors the limit while
+            // the primary keeps asserting it in each cycle; a single pulse
+            // gets ignored once the next heartbeat reverts to "no command".
+            uint16_t encodedMax = available_current_ * 100;
+            heartbeat.state = 0x09; // Limit power to the value from the next two bytes
 
-                // current * 100 (to get it to a whole number)
-                heartbeat.max_current = htons(encodedMax);
-            } else {
-                heartbeat.state = 0x00;
-                heartbeat.max_current = 0x00;
-            }
+            // current * 100 (to get it to a whole number)
+            heartbeat.max_current = htons(encodedMax);
 
             heartbeat.plug_inserted = 0x00;
 
