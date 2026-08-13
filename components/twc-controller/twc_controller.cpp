@@ -138,7 +138,15 @@ namespace esphome {
 
         void TWCController::writeChargerState(uint16_t twcid, uint8_t state) {
             this->state_sensor_->publish_state((float)state);
-            this->last_state_ = state;
+            // 9 is just an echo of our own continuous current-limit command
+            // (see update_derived_sensors_()), not a real vehicle status -
+            // don't let it overwrite the last state that actually was one.
+            // Otherwise a genuine "plugged in, not charging" (3) gets masked
+            // by the next 9 and vehicle_connected flips to false while the
+            // car is still there.
+            if (state != 9) {
+                this->last_state_ = state;
+            }
             this->update_derived_sensors_();
         }
 
