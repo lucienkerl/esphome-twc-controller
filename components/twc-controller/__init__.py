@@ -291,6 +291,7 @@ async def to_code(config):
     if allow_charging_config := config.get(CONF_ALLOW_CHARGING):
         allow_charging_switch = await switch.new_switch(allow_charging_config)
         cg.add(allow_charging_switch.set_parent(num_var))
+        cg.add(num_var.set_allow_charging_switch(allow_charging_switch))
 
     pin = await gpio_pin_expression(config[CONF_FLOW_CONTROL_PIN])
     cg.add(num_var.set_flow_control_pin(pin))

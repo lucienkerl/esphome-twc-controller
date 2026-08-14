@@ -41,6 +41,26 @@ namespace esphome {
             this->publish_state(this->initial_current_);
 
             teslaController_->Begin();
+
+            // Resolve and apply the Allow Charging switch's restored (or
+            // default) state ourselves: AllowChargingSwitch is a plain
+            // switch_::Switch, not a Component, so nothing calls
+            // get_initial_state_with_restore_mode()/publish_state() for it
+            // automatically the way a Component-based switch would. Without
+            // this, charging_enabled_ always started true after every boot
+            // regardless of what was last commanded, and flash persistence
+            // never worked at all - Switch::publish_state() only saves once
+            // its rtc_ member has been obtained via get_initial_state(), which
+            // never happened either. Must run after Begin() (registers the
+            // callback set_charging_enabled() calls into) and before
+            // Startup() (launches the task that sends the first
+            // StartCharging()/StopCharging() based on it).
+            if (this->allow_charging_switch_ != nullptr) {
+                bool initial = this->allow_charging_switch_->get_initial_state_with_restore_mode().value_or(true);
+                this->allow_charging_switch_->publish_state(initial);
+                this->set_charging_enabled(initial);
+            }
+
             teslaController_->Startup();
         }
 

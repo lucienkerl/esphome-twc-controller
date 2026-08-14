@@ -24,6 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "esphome/components/uart/uart.h"
 
 #include "twc_protocol.h"
+#include "twc_switch.h"
 #include "io.h"
 
 namespace esphome {
@@ -47,6 +48,7 @@ namespace esphome {
                 void set_flow_control_pin(GPIOPin *flow_control_pin) { this->flow_control_pin_ = flow_control_pin; }
                 void set_charging_enabled(bool enabled);
                 void set_initial_current(uint8_t current) { this->initial_current_ = current; }
+                void set_allow_charging_switch(AllowChargingSwitch *sw) { this->allow_charging_switch_ = sw; }
 
                 SUB_SENSOR(current)
                 SUB_SENSOR(max_allowable_current)
@@ -108,6 +110,7 @@ namespace esphome {
                 uint8_t min_current_;
                 uint8_t max_current_;
                 uint8_t initial_current_{0};
+                AllowChargingSwitch *allow_charging_switch_{nullptr};
                 uint16_t twcid_;
                 uint8_t passive_mode_;
         };
