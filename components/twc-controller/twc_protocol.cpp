@@ -270,6 +270,17 @@ namespace esphome {
                 ESP_LOGD(TAG, "Received charging enabled change message, now %s\r\n", enabled ? "true" : "false");
             }
             charging_enabled_ = enabled;
+
+            // Force a fresh Start/StopCharging on the next heartbeat cycle
+            // for every connected charger, even if the desired state didn't
+            // actually change. A single command was observed not to
+            // reliably stick on its own - the same reason the current
+            // limit needed continuous reassertion instead of a one-shot
+            // pulse. This makes turn_on/turn_off do something even when
+            // called repeatedly with the same value, e.g. as a manual retry.
+            for (uint8_t i = 0; i < num_connected_chargers_; i++) {
+                chargers[i]->charging_enabled_last_sent = -1;
+            }
         }
 
         // Dedicated protocol commands (0xFCB1/0xFCB2), separate from the
