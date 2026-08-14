@@ -33,19 +33,19 @@ namespace esphome {
                 uint8_t GetPhaseCurrent(uint8_t phase);
                 
                 uint16_t twcid;
-                uint8_t state;
-                uint8_t firmware_version[4];
-                
-                uint8_t serial_number[12];  // 11 chars + NUL
-                
-                uint32_t total_kwh;
-                uint16_t phase1_voltage;
-                uint16_t phase2_voltage;
-                uint16_t phase3_voltage;
-                
-                uint8_t phase1_current;
-                uint8_t phase2_current;
-                uint8_t phase3_current;
+                uint8_t state = 0;
+                uint8_t firmware_version[4] = {0};
+
+                uint8_t serial_number[12] = {0};  // 11 chars + NUL
+
+                uint32_t total_kwh = 0;
+                uint16_t phase1_voltage = 0;
+                uint16_t phase2_voltage = 0;
+                uint16_t phase3_voltage = 0;
+
+                uint8_t phase1_current = 0;
+                uint8_t phase2_current = 0;
+                uint8_t phase3_current = 0;
 
                 uint8_t max_allowable_current;
 
@@ -54,10 +54,15 @@ namespace esphome {
                 // linked secondary gets the current allow/deny state asserted
                 // once, and it isn't resent every loop iteration.
                 int8_t charging_enabled_last_sent = -1;
+
+                // The vehicle's real reported state, excluding state 9 (an
+                // echo of our own current-limit command). See the re-arm
+                // logic in DecodeSecondaryHeartbeat().
+                uint8_t last_vehicle_state = 0;
             private:
                 uint8_t vin_[18];
-                uint8_t actual_current_;
-                
+                uint8_t actual_current_ = 0;
+
         };
     }
 }

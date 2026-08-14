@@ -224,14 +224,14 @@ namespace esphome {
                 uint8_t receive_buffer_[MAX_PACKET_LENGTH];
                 uint8_t receive_index_;
                 bool message_started_ = false;
-                uint8_t available_current_;
+                uint8_t available_current_ = 0;
                 uint8_t max_current_;
                 uint8_t min_current_;
                 uint16_t stopstart_delay_;
                 bool charging_enabled_ = true;
                 bool debug_;
                 uint8_t passive_mode_;
-                uint8_t total_current_;
+                uint8_t total_current_ = 0;
                 TeslaConnector* chargers[3];
         };
     }

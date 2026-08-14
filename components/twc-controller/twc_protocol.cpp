@@ -68,7 +68,7 @@ namespace esphome {
             TeslaController* twc = static_cast<TeslaController*>(pvParameter);
 
             while (twc->passive_mode_)
-                vTaskDelay(1000+random(100,200)/portTICK_PERIOD_MS);
+                vTaskDelay((1000+random(100,200))/portTICK_PERIOD_MS);
 
 
             for (uint8_t i = 0; i < 5; i++) {
@@ -88,7 +88,7 @@ namespace esphome {
                     for (uint8_t i = 0; i < twc->ChargersConnected(); i++) {
                         twc->SendHeartbeat(twc->chargers[i]->twcid);
 
-                        vTaskDelay(500+random(50,100)/portTICK_PERIOD_MS);
+                        vTaskDelay((500+random(50,100))/portTICK_PERIOD_MS);
 
                         // Send the dedicated start/stop command once whenever
                         // the desired charging-enabled state changes (or a
@@ -101,7 +101,7 @@ namespace esphome {
                             } else {
                                 twc->StopCharging(twc->chargers[i]->twcid);
                             }
-                            vTaskDelay(200+random(50,100)/portTICK_PERIOD_MS);
+                            vTaskDelay((200+random(50,100))/portTICK_PERIOD_MS);
                         }
 
                         switch (commandNumber) {
@@ -124,7 +124,7 @@ namespace esphome {
                                 twc->SendCommand(GET_FIRMWARE_VER_EXT, twc->chargers[i]->twcid);
                                 break;
                         }
-                        vTaskDelay(1000+random(100,200)/portTICK_PERIOD_MS);
+                        vTaskDelay((1000+random(100,200))/portTICK_PERIOD_MS);
                     }
 
                     if (commandNumber >= 5) {
@@ -134,7 +134,7 @@ namespace esphome {
                     };
 
                 } else {
-                    vTaskDelay(1000+random(100,200)/portTICK_PERIOD_MS);
+                    vTaskDelay((1000+random(100,200))/portTICK_PERIOD_MS);
                 }
             }
 
@@ -381,6 +381,7 @@ namespace esphome {
             EXT_FIRMWARE_PAYLOAD_T *firmware_payload = (EXT_FIRMWARE_PAYLOAD_T *)firmware_ver->payload;
 
             TeslaConnector *c = GetConnector(firmware_ver->twcid);
+            if (!c) return;
 
             char buffer[10];
             snprintf(buffer, 10, "%d.%d.%d.%d",
@@ -426,6 +427,7 @@ namespace esphome {
             SERIAL_PAYLOAD_T *serial_payload = (SERIAL_PAYLOAD_T *)serial->payload;
 
             TeslaConnector *c = GetConnector(serial->twcid);
+            if (!c) return;
 
             std::string serial_str;
             if (!SanitizeAsciiField(serial_payload->serial, sizeof(serial_payload->serial), serial_str)) {
@@ -451,6 +453,10 @@ namespace esphome {
 
             if (!c) {
                 if (!passive_mode_) return;
+                if (num_connected_chargers_ >= 3) {
+                    ESP_LOGW(TAG, "Charger limit reached, ignoring %04x", power_state->twcid);
+                    return;
+                }
 
                 // Accept the fact that we've missed Primary's presence message.
                 ESP_LOGD(TAG, "New charger seen - adding to controller. ID: %04x,Max Allowable Current: ?\r\n",
@@ -533,6 +539,11 @@ namespace esphome {
             TeslaConnector *connector = GetConnector(presence->twcid);
 
             if (!connector) {
+                if (num_connected_chargers_ >= 3) {
+                    ESP_LOGW(TAG, "Charger limit reached, ignoring %04x", presence->twcid);
+                    return;
+                }
+
                 ESP_LOGD(TAG, "New charger seen - adding to controller. ID: %04x, Sign: %02x, Max Allowable Current: %d\r\n",
                     presence->twcid,
                     presence_payload->sign,
@@ -599,22 +610,33 @@ namespace esphome {
             }
 
             TeslaConnector *c = GetConnector(heartbeat->src_twcid);
+            if (!c) return;
 
-            // If the secondary changes it's state to 4, it's most likely
-            // because a new charging attempt just started (e.g. the vehicle
-            // was plugged in). The current limit is already reasserted in
-            // every heartbeat regardless, but StartCharging()/StopCharging()
-            // are only sent on change - a StopCharging() sent for a
-            // previous session doesn't carry over, so re-arm it here to get
-            // the current allow_charging state asserted again for this one.
             if (c->state != heartbeat->state) {
-                if (heartbeat->state == 4) {
-                    c->charging_enabled_last_sent = -1;
-                }
-
                 c->state = heartbeat->state;
                 UpdateTotalConnectedCars();
                 controller_io_->writeChargerState(heartbeat->src_twcid, c->state);
+            }
+
+            // Re-arm StartCharging()/StopCharging() when a new charging
+            // attempt begins (the vehicle was plugged in, or started a new
+            // session). They're only sent on change, so a StopCharging()
+            // sent for a previous session doesn't carry over - without this,
+            // the car would just charge on replug. Track the vehicle's real
+            // state separately from c->state above: state 9 is just an echo
+            // of our own continuous 0x09 current-limit command (see
+            // writeChargerState()), not a vehicle status, and interleaves
+            // with the real value - keying the re-arm off c->state directly
+            // would re-arm on every 9<->4 flip instead of once per session.
+            if (heartbeat->state != 9 && c->last_vehicle_state != heartbeat->state) {
+                bool was_engaged = c->last_vehicle_state == 1 || c->last_vehicle_state == 3 ||
+                                    c->last_vehicle_state == 4 || c->last_vehicle_state == 8;
+                bool now_engaged = heartbeat->state == 1 || heartbeat->state == 3 ||
+                                    heartbeat->state == 4 || heartbeat->state == 8;
+                if (!was_engaged && now_engaged) {
+                    c->charging_enabled_last_sent = -1;
+                }
+                c->last_vehicle_state = heartbeat->state;
             }
 
 
@@ -655,6 +677,11 @@ namespace esphome {
             TeslaConnector *connector = GetConnector(presence->twcid);
 
             if (!connector) {
+                if (num_connected_chargers_ >= 3) {
+                    ESP_LOGW(TAG, "Charger limit reached, ignoring %04x", presence->twcid);
+                    return;
+                }
+
                 ESP_LOGD(TAG, "New charger seen - adding to controller. ID: %04x, Sign: %02x, Max Allowable Current: %d\r\n",
                     presence->twcid,
                     presence_payload->sign,
@@ -699,6 +726,7 @@ namespace esphome {
             VIN_PAYLOAD_T *vin_payload = (VIN_PAYLOAD_T *)vin_data->payload;
 
             TeslaConnector *c = GetConnector(vin_data->twcid);
+            if (!c) return;
             uint8_t *vin = c->GetVin();
 
             bool changed = false;

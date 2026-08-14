@@ -26,12 +26,19 @@ namespace esphome {
                 this->flow_control_pin_->setup();
             }
 
-            this->publish_state(this->min_current_);
-
             teslaController_ = new TeslaController(this->parent_, this, twcid_, flow_control_pin_, passive_mode_);
 
             teslaController_->SetMinCurrent(this->min_current_);
             teslaController_->SetMaxCurrent(this->max_current_);
+
+            // Must happen before Startup() - that's what launches the task
+            // that sends the first heartbeat. Without this, the heartbeat's
+            // current limit comes from whatever value happened to be in
+            // memory (there is no restore-from-flash in this component),
+            // sent completely unclamped since clamping only happens inside
+            // SetCurrent() itself.
+            teslaController_->SetCurrent(this->initial_current_);
+            this->publish_state(this->initial_current_);
 
             teslaController_->Begin();
             teslaController_->Startup();
@@ -201,12 +208,19 @@ namespace esphome {
         }
 
         void TWCController::control(float value) {
-            this->onCurrentMessageCallback_(round(value));
+            // A command can arrive before setup() has run - this component
+            // deliberately sets up late (AFTER_CONNECTION), after the API/
+            // MQTT client may already be able to reach this entity.
+            if (this->onCurrentMessageCallback_) {
+                this->onCurrentMessageCallback_(round(value));
+            }
             this->publish_state(value);
         }
 
         void TWCController::set_charging_enabled(bool enabled) {
-            this->onChargingEnabledMessageCallback_(enabled);
+            if (this->onChargingEnabledMessageCallback_) {
+                this->onChargingEnabledMessageCallback_(enabled);
+            }
         }
 
         // State codes per TWCManager's TWCSlave.py (send_slave_heartbeat):

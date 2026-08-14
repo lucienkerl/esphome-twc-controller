@@ -15,7 +15,6 @@ from esphome.const import (
     CONF_ID,
     CONF_NAME,
     CONF_STEP,
-    CONF_RESTORE_VALUE,
     CONF_UNIT_OF_MEASUREMENT,
     CONF_CURRENT,
     CONF_STATE,
@@ -121,7 +120,6 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_TWCID, default=0xABCD): cv.hex_int_range(0, 65535),
             cv.Optional(CONF_SET_CURRENT): cv.positive_int,
             cv.Optional(CONF_STEP, default=1): cv.positive_int,
-            cv.Optional(CONF_RESTORE_VALUE, default=True): cv.boolean,
             cv.Optional(CONF_UNIT_OF_MEASUREMENT, default=UNIT_AMPERE): cv.one_of(UNIT_AMPERE),
             cv.Optional(CONF_PASSIVE_MODE, default=0): cv.int_range(min=0, max=1),
             cv.Required(CONF_FLOW_CONTROL_PIN): pins.gpio_output_pin_schema,
@@ -275,6 +273,11 @@ async def to_code(config):
     cg.add(num_var.set_max_current(config[CONF_MAX_CURRENT]))
     cg.add(num_var.set_twcid(config[CONF_TWCID]))
     cg.add(num_var.set_passive_mode(config[CONF_PASSIVE_MODE]))
+    # There is no restore-from-flash in this component, so this is the only
+    # thing that determines what current gets offered before anything else
+    # has explicitly written a value - falls back to min_current so it's
+    # never left implicitly undefined.
+    cg.add(num_var.set_initial_current(config.get(CONF_SET_CURRENT, config[CONF_MIN_CURRENT])))
 
     for key in TYPES:
         await setup_sensor(config, key, num_var)
