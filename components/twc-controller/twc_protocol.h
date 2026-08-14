@@ -228,7 +228,6 @@ namespace esphome {
                 uint8_t max_current_;
                 uint8_t min_current_;
                 uint16_t stopstart_delay_;
-                bool current_changed_;
                 bool charging_enabled_ = true;
                 bool debug_;
                 uint8_t passive_mode_;

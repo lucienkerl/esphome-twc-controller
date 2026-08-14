@@ -250,7 +250,6 @@ namespace esphome {
         void TeslaController::SetCurrent(uint8_t current) {
             if (available_current_ != current) {
                 ESP_LOGD(TAG, "Received current change message, new current %d\r\n", current);
-                current_changed_ = true;
             }
 
             // Clamp to the maximum for our charger. A current of 0 is a valid
@@ -601,12 +600,16 @@ namespace esphome {
 
             TeslaConnector *c = GetConnector(heartbeat->src_twcid);
 
-            // If the secondary changes it's state to 4, it's most likely because
-            // it's about to start charging.  Set the current changed flag
-            // so that we send the max current to the secondary again.
+            // If the secondary changes it's state to 4, it's most likely
+            // because a new charging attempt just started (e.g. the vehicle
+            // was plugged in). The current limit is already reasserted in
+            // every heartbeat regardless, but StartCharging()/StopCharging()
+            // are only sent on change - a StopCharging() sent for a
+            // previous session doesn't carry over, so re-arm it here to get
+            // the current allow_charging state asserted again for this one.
             if (c->state != heartbeat->state) {
                 if (heartbeat->state == 4) {
-                    current_changed_ = true;
+                    c->charging_enabled_last_sent = -1;
                 }
 
                 c->state = heartbeat->state;
