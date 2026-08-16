@@ -1,5 +1,5 @@
 /*
-TWC Manager for ESP32
+TWC Gateway for ESP32
 Copyright (C) 2020 Craig Peacock
 Copyright (C) 2020 Jarl Nicolson
 This program is free software; you can redistribute it and/or
@@ -19,13 +19,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <cstring>
 #include <cstdarg>
 
-#include "twc_controller.h"
+#include "twc_gateway.h"
 #include "twc_protocol.h"
 #include "functions.h"
 
 namespace esphome {
-    namespace twc_controller {
-        static const char *TAG = "twc.protocol";
+    namespace twc_gateway {
+        static const char *TAG = "twc-gateway.protocol";
 
         TeslaController::TeslaController(uart::UARTComponent* serial, TeslaControllerIO *io, uint16_t twcid, GPIOPin *flow_control_pin, int passive_mode) :
             serial_(serial),

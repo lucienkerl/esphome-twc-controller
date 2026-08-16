@@ -1,5 +1,5 @@
 /*
-TWC Manager for ESP32
+TWC Gateway for ESP32
 Copyright (C) 2023 Jarl Nicolson
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -21,7 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "esphome/core/log.h"
 
 namespace esphome {
-    namespace twc_controller {
+    namespace twc_gateway {
         // Encapsulate some information specific to a single wall connector.  This is to allow multiple connectors to be added
         class TeslaConnector {
             public:

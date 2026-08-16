@@ -1,5 +1,5 @@
 /*
-TWC Manager for ESP32
+TWC Gateway for ESP32
 Copyright (C) 2020 Craig Peacock
 Copyright (C) 2020 Jarl Nicolson
 This program is free software; you can redistribute it and/or
@@ -77,7 +77,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define SLIP_ESC_ESC    0xDD
 
 namespace esphome {
-    namespace twc_controller {
+    namespace twc_gateway {
 
         struct PACKET_T {
             uint16_t command;

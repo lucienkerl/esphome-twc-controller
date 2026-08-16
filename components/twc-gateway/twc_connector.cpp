@@ -1,5 +1,5 @@
 /*
-TWC Manager for ESP32
+TWC Gateway for ESP32
 Copyright (C) 2020 Jarl Nicolson
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -19,8 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 namespace esphome {
-    namespace twc_controller {
-        static const char *TAG = "twc-controller.connector";
+    namespace twc_gateway {
+        static const char *TAG = "twc-gateway.connector";
 
         TeslaConnector::TeslaConnector(uint16_t twcid, uint8_t max_allowable_current) :
             twcid(twcid),

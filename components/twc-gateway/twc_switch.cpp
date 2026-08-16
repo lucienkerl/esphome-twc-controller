@@ -1,5 +1,5 @@
 /*
-TWC Manager for ESP32
+TWC Gateway for ESP32
 Copyright (C) 2026 Jarl Nicolson
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -14,10 +14,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "twc_switch.h"
-#include "twc_controller.h"
+#include "twc_gateway.h"
 
 namespace esphome {
-    namespace twc_controller {
+    namespace twc_gateway {
 
         void AllowChargingSwitch::write_state(bool state) {
             this->parent_->set_charging_enabled(state);

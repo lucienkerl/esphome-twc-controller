@@ -1,0 +1,172 @@
+##############################################################################
+# Tesla Wall Connector Gen 2 - generic, credential-free build
+#
+# ONE binary for everyone, no per-user compile, no secrets.yaml. Flash this
+# as-is and configure WiFi and MQTT from the device itself afterwards,
+# entirely from a browser:
+#
+#   1. Flash this firmware (esphome run/upload this file, or grab a
+#      pre-built binary from this repo's Releases and flash it with
+#      https://web.esphome.io or any ESP32 flashing tool - no ESPHome
+#      installation needed on your end either way).
+#   2. The device has no WiFi configured, so it opens its own access point:
+#      SSID "twc-setup", password "twcsetup1" (change both below before
+#      you flash - anyone in range could otherwise join that AP). Connect
+#      to it from your phone or laptop; a captive portal page should open
+#      automatically, or browse to http://192.168.4.1/ if it doesn't.
+#   3. Pick your WiFi network and enter its password there. The device
+#      reboots and joins it.
+#   4. Open http://<its new IP>/ (check your router's client list, or the
+#      serial log) in a browser. Under "Text" you'll find MQTT Broker /
+#      MQTT Username / MQTT Password - fill those in and the device
+#      connects immediately. No reflash, no reboot needed, and it
+#      reconnects with the same settings automatically after any future
+#      restart.
+#
+# This is a companion to, not a replacement for, the main README's
+# quick-start example (which bakes WiFi/credentials into the build via
+# secrets.yaml). Use that one if you're comfortable with the ESPHome CLI
+# and want a single, fully self-contained config; use this one if you want
+# to hand a stranger a firmware file and have them set it up themselves.
+#
+# STILL READ THE MAIN README before flashing, especially:
+#   - max_current below MUST match your actual wiring/breaker, not just
+#     the number you'd like to charge at.
+#   - uart:/flow_control_pin: below are placeholders - verify them against
+#     your specific board, they are not universal.
+##############################################################################
+
+esphome:
+  name: twc
+  friendly_name: Tesla Wall Connector
+  on_boot:
+    # After every component's own setup() (including mqtt's, which stays
+    # disabled at this point) so id(mqtt_client)/id(mqtt_broker) etc. are
+    # all valid and mqtt_broker already holds whatever was restored from
+    # flash by the text component itself.
+    priority: -100
+    then:
+      - script.execute: apply_mqtt_settings
+
+esp32:
+  board: esp32dev # match your actual board
+
+# No ssid/password here on purpose. An unconfigured wifi: falls straight
+# through to the ap: fallback below on every boot until a network is set
+# via the captive portal, which then persists it to flash from then on.
+wifi:
+  ap:
+    ssid: "twc-setup"
+    password: "twcsetup1" # change this before flashing
+
+captive_portal:
+
+logger:
+  level: DEBUG
+  logs:
+    uart_debug: WARN   # suppresses the raw per-heartbeat byte dump
+    twc-gateway.protocol: INFO # keeps state-change lines, see the main README
+
+api:
+  reboot_timeout: 0s # required: without this, ESPHome reboots the device
+                      # every 15 minutes while no API client is connected
+
+ota:
+  - platform: esphome
+
+web_server:
+  port: 80
+  version: 1
+
+uart:
+  id: twc_uart
+  tx_pin: GPIO5 # placeholder - verify against your board, see the main
+  rx_pin: GPIO19 # README's Hardware section and UART pin comment
+  baud_rate: 9600
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+external_components:
+  - source: github://lucienkerl/esphome-twc-gateway@main
+    components: [twc-gateway]
+    refresh: 0s
+
+twc-gateway:
+  id: twc
+  uart_id: twc_uart
+  twc_id: 0xAB32
+  flow_control_pin: GPIO18 # DE/RE pin of your RS-485 transceiver - see the
+                            # main README, this is board-specific too
+  min_current: 0
+  max_current: 16 # SAFETY: set this to what your circuit can actually
+                  # deliver before you flash - see the main README
+  set_current: 6
+
+  current:
+    name: "Charging Current"
+  actual_current:
+    name: "Actual Current"
+  state:
+    name: "State"
+  allow_charging:
+    name: "Allow Charging"
+  vehicle_connected_numeric:
+    name: "Vehicle Connected"
+  charging_active_numeric:
+    name: "Charging Active"
+
+# --- MQTT, configured after flashing instead of baked in -------------------
+# enable_on_boot: false keeps this disabled until apply_mqtt_settings (see
+# below) actually applies a real broker address. "0.0.0.0" is a required
+# placeholder - mqtt: needs *some* non-empty string here, it's never used.
+mqtt:
+  id: mqtt_client
+  broker: "0.0.0.0"
+  enable_on_boot: false
+
+# Re-applies the three text fields below to the live MQTT client. Called
+# both at boot (with whatever was restored from flash) and every time one
+# of the fields is changed via the web UI.
+script:
+  - id: apply_mqtt_settings
+    then:
+      - lambda: |-
+          std::string broker = id(mqtt_broker).state;
+          if (broker.empty()) {
+            return;
+          }
+          id(mqtt_client).set_broker_address(broker);
+          id(mqtt_client).set_username(id(mqtt_username).state);
+          id(mqtt_client).set_password(id(mqtt_password).state);
+          // enable() is a no-op unless the client is currently disabled,
+          // so force a disable first to pick up changed settings even if
+          // it was already connected.
+          id(mqtt_client).disable();
+          id(mqtt_client).enable();
+
+text:
+  - platform: template
+    name: "MQTT Broker"
+    id: mqtt_broker
+    mode: text
+    optimistic: true
+    restore_value: true
+    set_action:
+      - script.execute: apply_mqtt_settings
+  - platform: template
+    name: "MQTT Username"
+    id: mqtt_username
+    mode: text
+    optimistic: true
+    restore_value: true
+    set_action:
+      - script.execute: apply_mqtt_settings
+  - platform: template
+    name: "MQTT Password"
+    id: mqtt_password
+    mode: password
+    optimistic: true
+    restore_value: true
+    set_action:
+      - script.execute: apply_mqtt_settings

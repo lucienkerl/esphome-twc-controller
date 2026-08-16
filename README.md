@@ -1,12 +1,45 @@
-# TWC Controller
+<p align="center">
+  <img src="assets/logo.svg" alt="" width="120" height="120">
+</p>
 
-An [ESPHome](https://esphome.io) external component that turns a Tesla Wall Connector Gen 2 into a smart, network-controllable charger — **without Home Assistant, without Tesla's cloud, and without the Tesla vehicle API.**
+<h1 align="center">TWC Gateway</h1>
+
+<p align="center">
+  Turn a Tesla Wall Connector Gen 2 into a smart, network-controllable charger —<br>
+  no Home Assistant, no Tesla cloud, no vehicle API.
+</p>
+
+<p align="center">
+  <a href="https://github.com/lucienkerl/esphome-twc-gateway/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/lucienkerl/esphome-twc-gateway"></a>
+  <a href="https://github.com/lucienkerl/esphome-twc-gateway/actions/workflows/build-generic-portal.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/lucienkerl/esphome-twc-gateway/build-generic-portal.yml?branch=main&label=generic%20build"></a>
+  <a href="https://esphome.io"><img alt="ESPHome external component" src="https://img.shields.io/badge/ESPHome-external%20component-2aa8c9"></a>
+  <a href="https://lucienkerl.github.io/esphome-twc-gateway/"><img alt="Flash in browser" src="https://img.shields.io/badge/flash-in%20browser-5ee6d0"></a>
+</p>
+
+<p align="center">
+  <a href="https://lucienkerl.github.io/esphome-twc-gateway/"><strong>Flash it now, straight from your browser →</strong></a>
+</p>
+
+This is an [ESPHome](https://esphome.io) external component — a plugin, not a fork of ESPHome itself — that adds support for the Tesla Wall Connector Gen 2 to any ESP32 project.
 
 The Gen 2 has no IP interface of its own: no WiFi, no Modbus, no local API. The only thing it speaks is Tesla's proprietary RS-485 load-sharing protocol, designed to let up to four TWCs share power between themselves. This project puts an ESP32 on that bus, has it impersonate a "primary" (master) TWC, and exposes everything it learns — and everything it can command — as plain ESPHome entities: readable and writable over REST, MQTT, or the Home Assistant API, whichever you already have.
 
 That makes it usable from **any** home automation system that can make an HTTP request, including systems like [Loxone](https://www.loxone.com/) that have no Tesla or Home Assistant integration at all. That is the specific goal this fork is built and tested around: get vehicle-connected/charging status, live power draw, and control over the charge current and on/off state into Loxone with no intermediate service required — just this one ESP32.
 
 This started as a standalone Arduino application and was rewritten as an ESPHome external component so that WiFi, OTA updates, and network transport are no longer something you have to build yourself — only the load-sharing protocol itself is project-specific code.
+
+## Contents
+
+- [How it works](#how-it-works)
+- [Features](#features)
+- [Hardware](#hardware)
+- [Quick start: flash from your browser](#quick-start-flash-from-your-browser)
+- [Installation (ESPHome CLI)](#installation)
+- [Configuration reference](#configuration-reference)
+- [Controlling and reading over REST](#controlling-and-reading-over-rest)
+- [Understanding `state`](#understanding-state)
+- [Known limitations & safety notes](#known-limitations--safety-notes)
+- [Credits & related projects](#credits--related-projects)
 
 ## How it works
 
@@ -33,6 +66,18 @@ You need an ESP32 (any variant with a free UART) and an RS-485 transceiver wired
 - **Bench-test first.** An M5 Atom Lite + RS-485 base (or any small dev board) is a fine way to validate wiring and see real frames in the logs before committing to a permanent, isolated install.
 
 Boards known to work: Olimex ESP32-POE / ESP32-POE-ISO with a MOD-RS485, and M5Stack Atom Lite with the Atomic RS485 Base. Any ESP32 + 3.3 V RS-485 transceiver combination should work equally well.
+
+## Quick start: flash from your browser
+
+**[lucienkerl.github.io/esphome-twc-gateway](https://lucienkerl.github.io/esphome-twc-gateway/)** flashes a ready-built firmware straight from Chrome or Edge — no ESPHome installation, no config file to write first. It's built from [`examples/generic-portal.yaml`](examples/generic-portal.yaml), a **single, credential-free binary**: nothing is baked in, so it works for anyone.
+
+1. Plug your ESP32 board in over USB and open the link above — it flashes directly from the browser (desktop Chrome/Edge only; Web Serial isn't supported elsewhere).
+2. With no WiFi configured yet, the device opens its own access point (`twc-setup`). Connect to it and a setup page for picking your WiFi network should open automatically.
+3. Once it joins your network, open its IP in a browser. MQTT broker/username/password are plain text fields there under "Text" — fill them in and it connects immediately, no reflash or reboot needed, and it reconnects with the same settings after every future restart.
+
+This works because ESPHome's `wifi: ap:` + `captive_portal:` handle WiFi provisioning natively. MQTT has no equivalent built-in setup flow, so the config wires three `text:` entities to `MQTTClientComponent`'s runtime setters (`set_broker_address()` etc., confirmed against ESPHome's own source) instead, applying them once at boot and again on every edit.
+
+**Before you rely on this for actual charging:** the `max_current` baked into that build is a placeholder — see [Known limitations & safety notes](#known-limitations--safety-notes) before treating a quick-start flash as a finished installation. If you're comfortable with the ESPHome CLI and want one self-contained config with your credentials baked in instead (no post-flash setup step), use the example below.
 
 ## Installation
 
@@ -82,12 +127,12 @@ uart:
   stop_bits: 1
 
 external_components:
-  - source: github://lucienkerl/esphome-twc-controller
-    components: [twc-controller]
+  - source: github://lucienkerl/esphome-twc-gateway
+    components: [twc-gateway]
     refresh: 0s # avoid ESPHome's day-long cache while you're iterating;
                 # widen this once your setup is stable
 
-twc-controller:
+twc-gateway:
   id: twc
   uart_id: twc_uart
   twc_id: 0xAB32          # this device's fake TWC ID - must not collide
@@ -154,7 +199,7 @@ twc-controller:
 There's no `power` sensor built in, since it's just voltage × current per phase, computed the same way regardless of what this component exposes. Give the three voltage and three current sensors above an `id:` each, then add a `template` sensor:
 
 ```yaml
-twc-controller:
+twc-gateway:
   # ...
   phase_1_voltage:
     name: "Phase 1 Voltage"
@@ -197,7 +242,7 @@ The `std::isnan` guard matters: every sensor reads NAN until its first real valu
 
 ## Configuration reference
 
-### `twc-controller:` options
+### `twc-gateway:` options
 
 | Option | Default | Description |
 |---|---|---|
@@ -214,7 +259,7 @@ The `std::isnan` guard matters: every sensor reads NAN until its first real valu
 
 | Config key | Entity type | Notes |
 |---|---|---|
-| *(the `twc-controller:` block itself)* | `number` | The controllable current offered to the vehicle, in amps. |
+| *(the `twc-gateway:` block itself)* | `number` | The controllable current offered to the vehicle, in amps. |
 | `allow_charging` | `switch` | Experimental — see [Known limitations](#known-limitations--safety-notes). |
 | `current` | `sensor` | Sum of actual current across every connected TWC (A). |
 | `actual_current` | `sensor` | Actual current of this connector specifically (A). Identical to `current` when only one TWC is linked. |
@@ -299,7 +344,7 @@ logger:
   level: DEBUG
   logs:
     uart_debug: WARN   # suppresses the raw >>>/<<< byte dump
-    twc.protocol: INFO # keeps the state-change lines
+    twc-gateway.protocol: INFO # keeps the state-change lines
 ```
 
 Turn `uart_debug` back up to its previous level only when you need to see the actual bytes on the wire, e.g. while debugging wiring or a new protocol command.

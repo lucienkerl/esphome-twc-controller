@@ -1,5 +1,5 @@
 /*
-TWC Manager for ESP32
+TWC Gateway for ESP32
 Copyright (C) 2023 Jarl Nicolson
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -15,13 +15,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "esphome/core/log.h"
 
-#include "twc_controller.h"
+#include "twc_gateway.h"
 
 namespace esphome {
-    namespace twc_controller {
-        static const char *TAG = "twc";
+    namespace twc_gateway {
+        static const char *TAG = "twc-gateway";
 
-        void TWCController::setup() {
+        void TWCGateway::setup() {
             if (this->flow_control_pin_ != nullptr) {
                 this->flow_control_pin_->setup();
             }
@@ -64,13 +64,13 @@ namespace esphome {
             teslaController_->Startup();
         }
 
-        void TWCController::loop() {
+        void TWCGateway::loop() {
             teslaController_->Handle();
 
         }
 
 /* IO Functions */
-        void TWCController::resetIO(uint16_t twcid) {
+        void TWCGateway::resetIO(uint16_t twcid) {
             // Write 0's to MQTT for each topic which has 0 as a valid value.  This is because
             // we compare the old and new values and by default everything is 0 so it never writes
             // anything.  This way we start at 0 and immediately update to the real value if there is
@@ -91,15 +91,15 @@ namespace esphome {
             writeTotalConnectedCars(0);
         }
 
-        void TWCController::writeActualCurrent(uint8_t actualCurrent) {
+        void TWCGateway::writeActualCurrent(uint8_t actualCurrent) {
             this->current_sensor_->publish_state((float)actualCurrent);
         }
 
-        void TWCController::writeCharger(uint16_t twcid, uint8_t max_allowable_current) {
+        void TWCGateway::writeCharger(uint16_t twcid, uint8_t max_allowable_current) {
             this->max_allowable_current_sensor_->publish_state((float)max_allowable_current);
         }
 
-        void TWCController::writeChargerCurrent(uint16_t twcid, uint8_t current, uint8_t phase) {
+        void TWCGateway::writeChargerCurrent(uint16_t twcid, uint8_t current, uint8_t phase) {
             switch (phase) {
                 case 1:
                     this->phase_1_current_sensor_->publish_state((float)current);
@@ -116,15 +116,15 @@ namespace esphome {
             }
         };
 
-        void TWCController::writeChargerSerial(uint16_t twcid, std::string serial) {
+        void TWCGateway::writeChargerSerial(uint16_t twcid, std::string serial) {
             this->serial_text_sensor_->publish_state(serial);
         }
 
-        void TWCController::writeChargerTotalKwh(uint16_t twcid, uint32_t total_kwh) {
+        void TWCGateway::writeChargerTotalKwh(uint16_t twcid, uint32_t total_kwh) {
             this->total_kwh_delivered_sensor_->publish_state((float)total_kwh);
         }
 
-        void TWCController::writeChargerVoltage(uint16_t twcid, uint16_t voltage, uint8_t phase) {
+        void TWCGateway::writeChargerVoltage(uint16_t twcid, uint16_t voltage, uint8_t phase) {
             switch (phase) {
                 case 1:
                     this->phase_1_voltage_sensor_->publish_state((float)voltage);
@@ -141,29 +141,29 @@ namespace esphome {
             }
         }
 
-        void TWCController::writeTotalConnectedChargers(uint8_t connected_chargers) {
+        void TWCGateway::writeTotalConnectedChargers(uint8_t connected_chargers) {
 
         };
 
-        void TWCController::writeChargerFirmware(uint16_t twcid, std::string firmware_version) {
+        void TWCGateway::writeChargerFirmware(uint16_t twcid, std::string firmware_version) {
             this->firmware_version_text_sensor_->publish_state(firmware_version);
         };
 
-        void TWCController::writeChargerActualCurrent(uint16_t twcid, uint8_t current) {
+        void TWCGateway::writeChargerActualCurrent(uint16_t twcid, uint8_t current) {
             this->actual_current_sensor_->publish_state((float)current);
             this->last_actual_current_ = current;
             this->update_derived_sensors_();
         }
 
-        void TWCController::writeChargerTotalPhaseCurrent(uint8_t current, uint8_t phase) {
+        void TWCGateway::writeChargerTotalPhaseCurrent(uint8_t current, uint8_t phase) {
 
         }
 
-        void TWCController::writeChargerConnectedVin(uint16_t twcid, std::string vin) {
+        void TWCGateway::writeChargerConnectedVin(uint16_t twcid, std::string vin) {
             this->connected_vin_text_sensor_->publish_state(vin);
         }
 
-        void TWCController::writeChargerState(uint16_t twcid, uint8_t state) {
+        void TWCGateway::writeChargerState(uint16_t twcid, uint8_t state) {
             this->state_sensor_->publish_state((float)state);
             // 9 is just an echo of our own continuous current-limit command
             // (see update_derived_sensors_()), not a real vehicle status -
@@ -177,62 +177,62 @@ namespace esphome {
             this->update_derived_sensors_();
         }
 
-        void TWCController::writeChargerPlugState(uint16_t twcid, uint8_t state) {
+        void TWCGateway::writeChargerPlugState(uint16_t twcid, uint8_t state) {
             this->last_plug_state_ = state;
             this->update_derived_sensors_();
         }
 
-        void TWCController::writeTotalConnectedCars(uint8_t connected_cars) {
+        void TWCGateway::writeTotalConnectedCars(uint8_t connected_cars) {
 
         }
 
-        void TWCController::writeRaw(uint8_t *data, size_t length) {
+        void TWCGateway::writeRaw(uint8_t *data, size_t length) {
 
         }
 
-        void TWCController::writeRawPacket(uint8_t *data, size_t length) {
+        void TWCGateway::writeRawPacket(uint8_t *data, size_t length) {
 
         }
 
-        void TWCController::onCurrentMessage(std::function<void(uint8_t)> callback) {
+        void TWCGateway::onCurrentMessage(std::function<void(uint8_t)> callback) {
             onCurrentMessageCallback_ = callback;
         }
 
-        void TWCController::onChargingEnabledMessage(std::function<void(bool)> callback) {
+        void TWCGateway::onChargingEnabledMessage(std::function<void(bool)> callback) {
             onChargingEnabledMessageCallback_ = callback;
         }
 
 
 /* End IO Functions */
 
-        void TWCController::dump_config() {
-            ESP_LOGCONFIG(TAG, "TWC Controller:");
+        void TWCGateway::dump_config() {
+            ESP_LOGCONFIG(TAG, "TWC Gateway:");
             this->print_params_();
         }
 
-        void TWCController::print_params_() {
+        void TWCGateway::print_params_() {
             ESP_LOGCONFIG(TAG,"  TWC ID: 0x%s", format_hex(this->twcid_).c_str());
             ESP_LOGCONFIG(TAG,"  Min Current: %d", this->min_current_);
             ESP_LOGCONFIG(TAG,"  Max Current: %d", this->max_current_);
             LOG_PIN("  Flow Control Pin: ", this->flow_control_pin_);
         }
 
-        void TWCController::set_min_current(uint8_t current) {
+        void TWCGateway::set_min_current(uint8_t current) {
             ESP_LOGD(TAG, "Set min current");
             this->min_current_ = current;
         }
 
-        void TWCController::set_max_current(uint8_t current) {
+        void TWCGateway::set_max_current(uint8_t current) {
             ESP_LOGD(TAG, "Set max current");
             this->max_current_ = current;
         }
 
-        void TWCController::set_twcid(uint16_t twcid) {
+        void TWCGateway::set_twcid(uint16_t twcid) {
             ESP_LOGD(TAG, "Set TWC ID");
             this->twcid_ = twcid;
         }
 
-        void TWCController::control(float value) {
+        void TWCGateway::control(float value) {
             // A command can arrive before setup() has run - this component
             // deliberately sets up late (AFTER_CONNECTION), after the API/
             // MQTT client may already be able to reach this entity.
@@ -242,7 +242,7 @@ namespace esphome {
             this->publish_state(value);
         }
 
-        void TWCController::set_charging_enabled(bool enabled) {
+        void TWCGateway::set_charging_enabled(bool enabled) {
             if (this->onChargingEnabledMessageCallback_) {
                 this->onChargingEnabledMessageCallback_(enabled);
             }
@@ -257,7 +257,7 @@ namespace esphome {
         // that command rather than reporting an actual vehicle status.
         // actual_current backstops both cases when the state byte is
         // ambiguous or lags behind reality.
-        void TWCController::update_derived_sensors_() {
+        void TWCGateway::update_derived_sensors_() {
             bool charging = this->last_state_ == 1 || this->last_state_ == 8 || this->last_actual_current_ > 0;
 
             // GET_PLUG_STATE (see writeChargerPlugState()) gives an

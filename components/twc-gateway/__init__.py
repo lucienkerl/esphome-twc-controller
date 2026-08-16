@@ -95,11 +95,11 @@ BINARY_TYPES = [
     CONF_CHARGING_ACTIVE,
 ]
 
-twc_controller_ns = cg.esphome_ns.namespace("twc_controller")
-TWCController = twc_controller_ns.class_(
-    "TWCController", number.Number, cg.Component, uart.UARTDevice
+twc_gateway_ns = cg.esphome_ns.namespace("twc_gateway")
+TWCGateway = twc_gateway_ns.class_(
+    "TWCGateway", number.Number, cg.Component, uart.UARTDevice
 )
-AllowChargingSwitch = twc_controller_ns.class_("AllowChargingSwitch", switch.Switch)
+AllowChargingSwitch = twc_gateway_ns.class_("AllowChargingSwitch", switch.Switch)
 
 def validate_min_max(config):
     if config[CONF_MAX_CURRENT] <= config[CONF_MIN_CURRENT]:
@@ -112,7 +112,7 @@ def validate_min_max(config):
     return config
 
 CONFIG_SCHEMA = cv.All(
-    number.number_schema(TWCController).extend(
+    number.number_schema(TWCGateway).extend(
         {
             cv.Optional(CONF_NAME, default="Set Current"): cv.string,
             cv.Optional(CONF_MIN_CURRENT, default=6): cv.int_range(min=0, max=32),
@@ -215,7 +215,7 @@ CONFIG_SCHEMA = cv.All(
                 default_restore_mode="RESTORE_DEFAULT_ON",
             ),
             # Derived from the state/actual_current sensors - see
-            # TWCController::update_derived_sensors_() for the exact logic
+            # TWCGateway::update_derived_sensors_() for the exact logic
             # and why the raw "state" value alone isn't used.
             cv.Optional(CONF_VEHICLE_CONNECTED): binary_sensor.binary_sensor_schema(
                 icon=ICON_CAR,

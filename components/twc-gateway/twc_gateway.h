@@ -1,5 +1,5 @@
 /*
-TWC Manager for ESP32
+TWC Gateway for ESP32
 Copyright (C) 2023 Jarl Nicolson
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -28,9 +28,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "io.h"
 
 namespace esphome {
-    namespace twc_controller {
+    namespace twc_gateway {
 
-        class TWCController : public number::Number, public uart::UARTDevice, public Component, public TeslaControllerIO {
+        class TWCGateway : public number::Number, public uart::UARTDevice, public Component, public TeslaControllerIO {
             public:
                 void setup() override;
                 void loop() override;

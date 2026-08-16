@@ -3,7 +3,7 @@
 #include "functions.h"
 
 namespace esphome {
-    namespace twc_controller {
+    namespace twc_gateway {
       uint8_t hexCharacterStringToBytes(uint8_t *byteArray, const uint8_t *hexString, size_t length)
       {
         //bool oddLength = strlen(hexString) & 1;
