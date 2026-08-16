@@ -42,7 +42,8 @@ esphome:
   friendly_name: Tesla Wall Connector
 
 esp32:
-  board: esp32dev # match your actual board
+  board: esp32dev # match your actual board - e.g. m5stack-atom for an
+                   # M5Stack Atom Lite
 
 # On a PoE board, prefer `ethernet:` over `wifi:` here — one less thing
 # that can drop out on a device that's about to control your car charger.
@@ -68,8 +69,13 @@ web_server:
 
 uart:
   id: twc_uart
-  tx_pin: GPIO5
-  rx_pin: GPIO19
+  # GPIO19 (TX) / GPIO22 (RX) are confirmed working for an M5Stack Atom Lite
+  # with the Atomic RS485 Base - M5's own pinout docs are ambiguous here, so
+  # this was verified empirically (pulse-counting each candidate GPIO while
+  # the TWC's linkready frames were on the bus). Different board, different
+  # pins - check yours before assuming these apply.
+  tx_pin: GPIO19
+  rx_pin: GPIO22
   baud_rate: 9600
   data_bits: 8
   parity: NONE
@@ -86,7 +92,13 @@ twc-controller:
   uart_id: twc_uart
   twc_id: 0xAB32          # this device's fake TWC ID - must not collide
                            # with a real TWC's ID on the bus
-  flow_control_pin: GPIO18 # DE/RE pin of your RS-485 transceiver
+  flow_control_pin: GPIO33 # DE/RE pin of your RS-485 transceiver. A board
+                            # whose transceiver switches direction itself
+                            # (e.g. the Atomic RS485 Base) doesn't use this
+                            # pin electrically, but the option is required -
+                            # point it at any otherwise-unused GPIO. On a
+                            # board like the Olimex MOD-RS485 this pin is
+                            # real and must go to the transceiver's DE/RE.
   min_current: 0           # 0 is a valid "offer nothing" value; 1-5 A are not
                             # valid in the protocol and get clamped up to 6
   max_current: 16           # hard ceiling - set this to what your circuit
@@ -136,6 +148,52 @@ twc-controller:
   charging_active_numeric:              # as a plain 0/1 sensor for MQTT
     name: "Charging Active Numeric"
 ```
+
+### Computing charging power in kW
+
+There's no `power` sensor built in, since it's just voltage × current per phase, computed the same way regardless of what this component exposes. Give the three voltage and three current sensors above an `id:` each, then add a `template` sensor:
+
+```yaml
+twc-controller:
+  # ...
+  phase_1_voltage:
+    name: "Phase 1 Voltage"
+    id: twc_v1
+  phase_2_voltage:
+    name: "Phase 2 Voltage"
+    id: twc_v2
+  phase_3_voltage:
+    name: "Phase 3 Voltage"
+    id: twc_v3
+  phase_1_current:
+    name: "Phase 1 Current"
+    id: twc_i1
+  phase_2_current:
+    name: "Phase 2 Current"
+    id: twc_i2
+  phase_3_current:
+    name: "Phase 3 Current"
+    id: twc_i3
+
+sensor:
+  - platform: template
+    name: "Charging Power"
+    unit_of_measurement: "kW"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 5s
+    lambda: |-
+      auto v = [](esphome::sensor::Sensor *s) -> float {
+        return std::isnan(s->state) ? 0.0f : s->state;
+      };
+      float p = v(id(twc_v1)) * v(id(twc_i1))
+              + v(id(twc_v2)) * v(id(twc_i2))
+              + v(id(twc_v3)) * v(id(twc_i3));
+      return p / 1000.0f;
+```
+
+The `std::isnan` guard matters: every sensor reads NAN until its first real value arrives after boot, and one NAN in the sum turns the whole result into NAN.
 
 ## Configuration reference
 
