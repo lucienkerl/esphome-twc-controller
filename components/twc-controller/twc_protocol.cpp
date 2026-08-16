@@ -123,11 +123,14 @@ namespace esphome {
                             case 5:
                                 twc->SendCommand(GET_FIRMWARE_VER_EXT, twc->chargers[i]->twcid);
                                 break;
+                            case 6:
+                                twc->GetPlugState(twc->chargers[i]->twcid);
+                                break;
                         }
                         vTaskDelay((1000+random(100,200))/portTICK_PERIOD_MS);
                     }
 
-                    if (commandNumber >= 5) {
+                    if (commandNumber >= 6) {
                         commandNumber = 0;
                     } else {
                         commandNumber++;
@@ -245,6 +248,10 @@ namespace esphome {
             SendCommand(GET_VIN_FIRST, secondary_twcid);
             SendCommand(GET_VIN_MIDDLE, secondary_twcid);
             SendCommand(GET_VIN_LAST, secondary_twcid);
+        }
+
+        void TeslaController::GetPlugState(uint16_t secondary_twcid) {
+            SendCommand(GET_PLUG_STATE, secondary_twcid);
         }
 
         void TeslaController::SetCurrent(uint8_t current) {
@@ -457,6 +464,28 @@ namespace esphome {
             }
         }
 
+        // Unlike the heartbeat's state byte (ambiguous at 0 - "may or may
+        // not be plugged in"), this is a direct, unambiguous answer:
+        // 0=unplugged, 1=charging, 2=unknown, 3=plugged in but not
+        // charging. Queried periodically (see startupTask_) specifically to
+        // tell a genuinely unplugged car apart from one that's simply done
+        // charging and settled into state 0.
+        void TeslaController::DecodePlugState(RESP_PACKET_T *plug_state) {
+            TeslaConnector *c = GetConnector(plug_state->twcid);
+            if (!c) return;
+
+            uint8_t state = plug_state->payload[0];
+            if (c->plug_state != state) {
+                ESP_LOGI(TAG, "Plug state changed for %04x: %d -> %d", plug_state->twcid, c->plug_state, state);
+                c->plug_state = state;
+                controller_io_->writeChargerPlugState(plug_state->twcid, state);
+            }
+
+            if (debug_) {
+                ESP_LOGD(TAG, "Decoded: ID: %04x, Plug State: %d\r\n", plug_state->twcid, state);
+            }
+        }
+
         void TeslaController::DecodePowerState(EXTENDED_RESP_PACKET_T *power_state) {
             POWERSTATUS_PAYLOAD_T *power_state_payload = (POWERSTATUS_PAYLOAD_T *)power_state->payload;
 
@@ -647,6 +676,12 @@ namespace esphome {
                 if (!was_engaged && now_engaged) {
                     c->charging_enabled_last_sent = -1;
                 }
+                // Logged at INFO (not gated by debug_) and with a fixed,
+                // greppable prefix so a real state transition stands out
+                // from the per-heartbeat uart_debug byte dump - see the
+                // logger: logs: override for uart_debug in the README if
+                // that's still too noisy to scroll through.
+                ESP_LOGI(TAG, "Vehicle state changed for %04x: %d -> %d", heartbeat->src_twcid, c->last_vehicle_state, heartbeat->state);
                 c->last_vehicle_state = heartbeat->state;
             }
 
@@ -838,6 +873,9 @@ namespace esphome {
                     break;
                 case RESP_SERIAL_NUMBER:
                     DecodeSerialNumber((EXTENDED_RESP_PACKET_T *)packet);
+                    break;
+                case RESP_PLUG_STATE:
+                    DecodePlugState((RESP_PACKET_T *)packet);
                     break;
                 // The next commands would normally be sent by a primary so we won't receive them
                 // unless we're pretending to be a secondary (i.e. for debugging)

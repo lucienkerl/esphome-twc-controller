@@ -212,14 +212,39 @@ The `state` sensor is the raw status byte the TWC reports in its heartbeat. Per 
 | 9 | **Not an independent status.** Protocol v2 echoes the command type the master just sent (this device sends command `0x09`, current limit, in every heartbeat) as an acknowledgement. Expect to see `9` almost continuously — it does not mean anything changed with the vehicle. |
 | 0x0A | Amp adjustment period complete (follow-up to states 6/7). |
 
-Because raw `state` alone can't reliably answer "is a car connected?" or "is it charging?" — code `0` is explicitly ambiguous and code `9` is now near-constant — the `vehicle_connected` and `charging_active` binary sensors are computed instead of exposing this byte directly:
+Because raw `state` alone can't reliably answer "is a car connected?" or "is it charging?" — code `0` is explicitly ambiguous, code `9` is now near-constant, and a fully charged car settles back into `0` while still plugged in — the `vehicle_connected` and `charging_active` binary sensors are computed instead of exposing this byte directly:
 
 ```
-charging_active  = state in {1, 8}  OR  actual_current > 0
+charging_active = state in {1, 8}  OR  actual_current > 0
+```
+
+For `vehicle_connected`, this component also queries the protocol's separate `GET_PLUG_STATE` command (not exposed as its own sensor, since it's specifically about disambiguating this one question) periodically in the background. Unlike the heartbeat's `state`, its answer is unambiguous — `0` genuinely means unplugged, not "unplugged or just idle". Once the first response has come back:
+
+```
+vehicle_connected = plug_state != 0
+```
+
+Before that first response (briefly, after boot or a fresh link), it falls back to:
+
+```
 vehicle_connected = charging_active  OR  state in {3, 4}
 ```
 
-`actual_current` acts as a backstop whenever the state byte is ambiguous or lagging behind reality.
+which is the same heuristic used before `GET_PLUG_STATE` was wired up, and is why the fallback can still misread a fully-charged-but-still-plugged-in car as disconnected if you catch it in that narrow window.
+
+### Finding state changes in the logs
+
+With `uart: debug:` enabled, every single heartbeat frame (roughly once a second per connected TWC) gets logged, which buries the state transitions you actually care about. Every real vehicle state change and every `GET_PLUG_STATE` change is also logged separately at `INFO` with a fixed, greppable prefix — `Vehicle state changed for ...` / `Plug state changed for ...` — regardless of the raw byte dump. To see only those and cut the per-heartbeat noise, drop the `uart_debug` tag down in your `logger:` config:
+
+```yaml
+logger:
+  level: DEBUG
+  logs:
+    uart_debug: WARN   # suppresses the raw >>>/<<< byte dump
+    twc.protocol: INFO # keeps the state-change lines
+```
+
+Turn `uart_debug` back up to its previous level only when you need to see the actual bytes on the wire, e.g. while debugging wiring or a new protocol command.
 
 ## Known limitations & safety notes
 

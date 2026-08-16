@@ -177,6 +177,11 @@ namespace esphome {
             this->update_derived_sensors_();
         }
 
+        void TWCController::writeChargerPlugState(uint16_t twcid, uint8_t state) {
+            this->last_plug_state_ = state;
+            this->update_derived_sensors_();
+        }
+
         void TWCController::writeTotalConnectedCars(uint8_t connected_cars) {
 
         }
@@ -254,7 +259,20 @@ namespace esphome {
         // ambiguous or lags behind reality.
         void TWCController::update_derived_sensors_() {
             bool charging = this->last_state_ == 1 || this->last_state_ == 8 || this->last_actual_current_ > 0;
-            bool connected = charging || this->last_state_ == 3 || this->last_state_ == 4;
+
+            // GET_PLUG_STATE (see writeChargerPlugState()) gives an
+            // unambiguous answer once we've queried it at least once:
+            // 0=unplugged, everything else means something is connected.
+            // Unlike the heartbeat's state byte, it doesn't collapse a
+            // fully charged, still-connected car into the same value (0)
+            // as "nothing plugged in" - fall back to the state-based guess
+            // only until the first response arrives.
+            bool connected;
+            if (this->last_plug_state_ >= 0) {
+                connected = this->last_plug_state_ != 0;
+            } else {
+                connected = charging || this->last_state_ == 3 || this->last_state_ == 4;
+            }
 
             if (this->charging_active_binary_sensor_ != nullptr) {
                 this->charging_active_binary_sensor_->publish_state(charging);

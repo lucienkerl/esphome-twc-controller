@@ -173,6 +173,7 @@ namespace esphome {
                 void GetSerial(uint16_t secondary_twcid);
                 void GetFirmwareVer(uint16_t secondary_twcid);
                 void GetVin(uint16_t secondary_twcid);
+                void GetPlugState(uint16_t secondary_twcid);
                 void Handle();
                 void SendCommand(uint16_t command, uint16_t send_to);
                 void SendPresence(bool presence2 = false);
@@ -189,6 +190,7 @@ namespace esphome {
                 void DecodeVin(EXTENDED_RESP_PACKET_T *vin);
                 void DecodeExtFirmwareVerison(RESP_PACKET_T *firmware_ver);
                 void DecodeSerialNumber(EXTENDED_RESP_PACKET_T *serial);
+                void DecodePlugState(RESP_PACKET_T *plug_state);
                 void SetCurrent(uint8_t current);
                 void SetMaxCurrent(uint8_t maxCurrent);
                 void SetMinCurrent(uint8_t mincurrent);

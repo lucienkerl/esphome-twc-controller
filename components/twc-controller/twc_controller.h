@@ -89,6 +89,7 @@ namespace esphome {
                 void writeChargerTotalPhaseCurrent(uint8_t, uint8_t);
                 void writeChargerConnectedVin(uint16_t, std::string);
                 void writeChargerState(uint16_t, uint8_t);
+                void writeChargerPlugState(uint16_t, uint8_t);
                 void writeTotalConnectedCars(uint8_t);
                 void writeRaw(uint8_t*, size_t);
                 void writeRawPacket(uint8_t *data, size_t length);
@@ -105,6 +106,7 @@ namespace esphome {
                 TeslaController *teslaController_{nullptr};
                 uint8_t last_state_{0};
                 uint8_t last_actual_current_{0};
+                int8_t last_plug_state_{-1};
                 std::function<void(uint8_t)> onCurrentMessageCallback_=nullptr;
                 std::function<void(bool)> onChargingEnabledMessageCallback_=nullptr;
                 uint8_t min_current_;

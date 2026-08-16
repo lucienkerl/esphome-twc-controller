@@ -59,6 +59,14 @@ namespace esphome {
                 // echo of our own current-limit command). See the re-arm
                 // logic in DecodeSecondaryHeartbeat().
                 uint8_t last_vehicle_state = 0;
+
+                // -1 = never queried yet. Otherwise the response to
+                // GET_PLUG_STATE: 0=unplugged, 1=charging, 2=unknown,
+                // 3=plugged in but not charging. Unlike the heartbeat's
+                // state byte, this is unambiguous about "unplugged" - it
+                // doesn't collapse into the same value (0) that a fully
+                // charged, still-connected car settles into.
+                int8_t plug_state = -1;
             private:
                 uint8_t vin_[18];
                 uint8_t actual_current_ = 0;

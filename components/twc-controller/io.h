@@ -33,6 +33,7 @@ namespace esphome {
                 virtual void writeChargerTotalPhaseCurrent(uint8_t, uint8_t) = 0;
                 virtual void writeChargerConnectedVin(uint16_t, std::string) = 0;
                 virtual void writeChargerState(uint16_t, uint8_t) = 0;
+                virtual void writeChargerPlugState(uint16_t, uint8_t) = 0;
                 virtual void writeTotalConnectedCars(uint8_t) = 0;
                 virtual void writeRaw(uint8_t*, size_t) = 0;
                 virtual void writeRawPacket(uint8_t *data, size_t length) = 0;
